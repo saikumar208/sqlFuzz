@@ -19,11 +19,21 @@ class BNF_Regex():
     @staticmethod
     def getHtmlHeaderRegex():
         ''' Regex for comment '''
-        return re.compile(r'--h3(.*?)--/h3', re.DOTALL)
+        return re.compile(r'(--h(\d)(.*?)--/h(\d))|(--hr)|(See the Syntax Rules.)', re.DOTALL)
 
     @staticmethod
     def getExprRegex():
         return re.compile(r'\n<(.*?)>(\s)*::=(.*?)(``)', re.DOTALL)
+
+    @staticmethod
+    def getTokenCleanRegex():
+        ''' Removes leading and trailing spaces, endline and `` '''
+        return re.compile(r'(^(\s)*|(\s)*$|``|\n)')
+
+    @staticmethod
+    def getSplitExprRegex():
+
+        return re.compile("((\s\s)|(\n)|\t)")
 
     @staticmethod
     def getCleaningRegexes():
@@ -89,18 +99,21 @@ class Parser():
         validExpressions = ["".join(x) for x in validExpressions]
         return validExpressions
 
+    def cleanExpressionList(self, expList ):
+        '''removes useless statements '''
+        expList = [ re.sub(r'(\t|\n|^(\s)*$|``)', '', x) for x in expList if x is not None ]
+        expList = [ re.sub(r'<\s*>', '_', x) for x in expList if x != '' ]
+        return expList
+
     def createTokens(self, expressions ):
         for i, exp in enumerate( expressions ):
-            if i == 0:
-                ''' To account for initial statement '''
-                tokenName = "SQL terminal character"
-                exp = exp.replace(tokenName, "")
-            else:
-                tokenName = exp.pop(0)
+            exp = BNF_Regex.getSplitExprRegex().split( exp )
+            tokenName = exp.pop(0)
+            exp = self.cleanExpressionList( exp )
             tokenName = tokenName.replace(" ", "_")
-            #members = "".join(exp)
-            members = re.sub(r"(\t|\n|``)*", "", members )
-            print( members )
+            assignment = ''.join(exp)
+            members = BNF_Regex.getTokenCleanRegex().sub("", assignment)
+            print( tokenName, members )
 
     def parse(self):
         ''' Read Grammar and Create Tokens '''

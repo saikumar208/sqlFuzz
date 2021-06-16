@@ -5,6 +5,7 @@ File to parse bnf Grammar
 from config.grammarConfig import GRAMMAR_FILE
 from config.generalConfig import getAbsPath
 import re
+from logging import getLogger
 
 class BNF_Regex():
 
@@ -31,6 +32,10 @@ class BNF_Regex():
         return re.compile(r'(^(\s)*|(\s)*$|``|\n)')
 
     @staticmethod
+    def getTokenFromExpRegex():
+        return re.compile( r'<.*?>' )
+
+    @staticmethod
     def getSplitExprRegex():
 
         return re.compile("((\s\s)|(\n)|\t)")
@@ -43,7 +48,7 @@ class BNF_Regex():
 
         return [comments, htmlH3Header]
 
-class Token():
+class Expression():
 
     instances = dict()
 
@@ -51,12 +56,73 @@ class Token():
         self.params = kwargs
         self.name = self.params.get( "name" )
         self.members = self.params.get( "members" )
-        Token.instances[ self.name ] = self
+        Expression.instances[ self.name ] = self
+        self.initMembers()
 
     def getMembers(self):
         ''' returns Members '''
 
         return self.members
+
+    def initMembers(self):
+        ''' initializes members '''
+        members = self.members.split("|")
+        Token.breakDownExp( self.name, self.members )
+        pass
+
+class Token():
+
+    _instances = dict()
+
+    def __init__(self, **kwargs):
+
+        name = kwargs.get("name")
+        if name in Token._instances:
+            kwargs.update( Token._instances[name].params )
+
+        self.params = kwargs
+        self.name = self.params.get("name")
+
+        self.setValues()
+        self.isAtom = self.params.get( "isAtom", False )
+        self.isReqArg = self.params.get( "isReq", False )
+        Token._instances[ self.name ] = self
+
+    @staticmethod
+    def getValidTokens():
+
+        return Token._instances.keys()
+
+    def setValues( self ):
+        values = self.params.get( "values", None )
+        if values is not None:
+            self.values = values.split("|")
+
+    def updateValuesType( self ):
+        ''' Once all tokens have been created, update the types of the tokens '''
+        pass
+
+    def getValues(self):
+        ''' yield values '''
+        for token in self.values:
+            yield  token
+
+    @staticmethod
+    def breakDownExp( name, expression ):
+        ''' breaks down expressions into individual tokens '''
+
+        for tok in Token.getValidTokens():
+            expression = expression.replace( tok, "")
+        expression = re.sub("((<(\s)*>)|[(\s)*]])", "", expression)
+
+        # Literals
+        tokens = BNF_Regex.getTokenFromExpRegex().findall( expression )
+        tokens = [ re.sub('<|>', '', x) for x in tokens]
+        tokens = [re.sub('\s', '_', x) for x in tokens]
+        _ = [ Token(**{'name': x}) for x in tokens ]
+        # First create tokens enclosed in <>
+        Token(**{"name": name, "values" : expression})
+
 
 class Parser():
 
@@ -113,7 +179,8 @@ class Parser():
             tokenName = tokenName.replace(" ", "_")
             assignment = ''.join(exp)
             members = BNF_Regex.getTokenCleanRegex().sub("", assignment)
-            print( tokenName, members )
+            Expression(**{"name": tokenName, "members": members})
+            #print( tokenName, members )
 
     def parse(self):
         ''' Read Grammar and Create Tokens '''
@@ -125,5 +192,9 @@ class Parser():
         self.createTokens( validExpressions )
 
 
-a = Parser()
-a.parse()
+if __name__ == '__main__':
+    parserObj = Parser()
+    parserObj.parse()
+    logger = getLogger()
+    logger.info("Tokens Created")
+

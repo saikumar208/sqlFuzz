@@ -2,7 +2,7 @@
 
 import os
 
-HOME_DIR_PATH = r"C:\Users\Sai\PycharmProjects\sqlFuzz"
+HOME_DIR_PATH = r"C:\Users\Sai\PycharmProjects\sqlFuzz" # fix this
 
 def getAbsPath( relPath ):
     ''' Return Absolute Path '''

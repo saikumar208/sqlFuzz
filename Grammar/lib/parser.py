@@ -1,4 +1,5 @@
 """
+Tests: tests/grammar/lib/test_parser.py
 File to parse bnf Grammar
 """
 
@@ -48,6 +49,11 @@ class BNF_Regex():
 
         return [comments, htmlH3Header]
 
+    @staticmethod
+    def getTrailingUnderscore():
+
+        return re.compile("(^_|_$)")
+
 class Expression():
 
     instances = dict()
@@ -70,6 +76,11 @@ class Expression():
         Token.breakDownExp( self.name, self.members )
         pass
 
+class Literal():
+
+    def __init__(self, **kwargs):
+        self.params = kwargs
+
 class Token():
 
     _instances = dict()
@@ -77,26 +88,63 @@ class Token():
     def __init__(self, **kwargs):
 
         name = kwargs.get("name")
+        self.name = self.formatTokenName( name )
         if name in Token._instances:
             kwargs.update( Token._instances[name].params )
 
         self.params = kwargs
-        self.name = self.params.get("name")
+
 
         self.setValues()
         self.isAtom = self.params.get( "isAtom", False )
         self.isReqArg = self.params.get( "isReq", False )
         Token._instances[ self.name ] = self
 
+    def __str__(self, **kwargs ):
+
+        return "%s %s"%( self.name, str(self.values ) )
+
     @staticmethod
     def getValidTokens():
 
         return Token._instances.keys()
 
+    @staticmethod
+    def formatTokenName( name ):
+        ''' Formats token name the way it is stored in instances'''
+        # Does not remove angular brackets
+        name = re.sub(r"(\s)", "_", name )
+        name = re.sub('<|>', '', name)
+        name = re.sub('\s', '_', name)
+        name = BNF_Regex.getTrailingUnderscore().sub("", name)
+        return name
+
+    @staticmethod
+    def getInstanceKeyByName( name ):
+        name = Token.formatTokenName(name)
+        name = re.sub(r"(<|>)", "", name)
+        return name
+
+    @staticmethod
+    def isToken( name ):
+        ''' Checks if a given name is a token '''
+        if (name.startswith("<") and name.endswith(">")) or name in Token._instances:
+            return True
+        return False
+
+    @staticmethod
+    def getTokenByName( name ):
+        ''' return Token by name '''
+        fmtName = Token.getInstanceKeyByName( name )
+        if Token.isToken( name ):
+            return Token._instances[ fmtName ]
+        raise Exception( "No Token by name '%s'"%name )
+
     def setValues( self ):
         values = self.params.get( "values", None )
         if values is not None:
-            self.values = values.split("|")
+            self.values = [ Token.formatTokenName( x ) for x in values.split("|") ]
+            pass
 
     def updateValuesType( self ):
         ''' Once all tokens have been created, update the types of the tokens '''
@@ -117,8 +165,7 @@ class Token():
 
         # Literals
         tokens = BNF_Regex.getTokenFromExpRegex().findall( expression )
-        tokens = [ re.sub('<|>', '', x) for x in tokens]
-        tokens = [re.sub('\s', '_', x) for x in tokens]
+
         _ = [ Token(**{'name': x}) for x in tokens ]
         # First create tokens enclosed in <>
         Token(**{"name": name, "values" : expression})
@@ -180,7 +227,6 @@ class Parser():
             assignment = ''.join(exp)
             members = BNF_Regex.getTokenCleanRegex().sub("", assignment)
             Expression(**{"name": tokenName, "members": members})
-            #print( tokenName, members )
 
     def parse(self):
         ''' Read Grammar and Create Tokens '''
@@ -197,4 +243,5 @@ if __name__ == '__main__':
     parserObj.parse()
     logger = getLogger()
     logger.info("Tokens Created")
+
 

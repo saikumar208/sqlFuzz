@@ -26,22 +26,21 @@ class TestParser(TestCase):
     def test_parse(self):
         parserObj = Parser()
         parserObj.parse()
-        exceptions = [ 'delimited_identifier', 'double_', 'bit_string_literal', 'hex_string_literal', 'large_object_length_', 'initial_alphabetic_character','ideographic_character' ]
+        exceptions = []
         for x in Token._instances:
             print(x)
             token = Token.getTokenByName( x )
+            exceptions = ['bitstringliteral', 'hexstringliteral', 'initialalphabeticcharacter',
+                          'ideographiccharacter', 'whitespace', 'slash', 'unqualifiedschemaname',
+                          'numericvalueexpressiondividend', 'numericvalueexpressiondivisor', 'tableborder=1',
+                          'th', '/th', 'pre', 'sup', '/sup', '/pre', 'tr', 'td', '/td', '/tr', '/table',
+                          'character--@@setspecification', 'handlerdeclaration']
+            if token.name in exceptions:
+                continue
+            print(token)
 
-            try:
-                if token.name in exceptions:
-                    continue
-                print(token)
-
-                for val in token.values:
-                    print( val )
-                    if token.isToken( val ):
-                        Token.getTokenByName( val )
-                        assert( Token.getInstanceKeyByName( val ) in Token._instances )
-            except:
-                exceptions.append(token.name)
-                pass
-        print( exceptions )
+            for val in token.values:
+                print( val )
+                if token.isToken( val ):
+                    Token.getTokenByName( val )
+                    assert( Token.getInstanceKeyByName( val ) in Token._instances )

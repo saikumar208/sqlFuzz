@@ -89,10 +89,13 @@ class Token():
 
         name = kwargs.get("name")
         self.name = self.formatTokenName( name )
-        if name in Token._instances:
-            kwargs.update( Token._instances[name].params )
-
-        self.params = kwargs
+        if self.name in Token._instances:
+            Token._instances[ self.name ].params.update(kwargs)
+            self.params = Token._instances[ self.name ].params
+            del Token._instances[ self.name ]   # easy way to get rid of old instance
+            #kwargs.update( Token._instances[name].params )
+        else:
+            self.params = kwargs
 
 
         self.setValues()
@@ -113,9 +116,9 @@ class Token():
     def formatTokenName( name ):
         ''' Formats token name the way it is stored in instances'''
         # Does not remove angular brackets
-        name = re.sub(r"(\s)", "_", name )
+        name = re.sub(r"(\s)", "", name )
         name = re.sub('<|>', '', name)
-        name = re.sub('\s', '_', name)
+        name = re.sub('\s', '', name)
         name = BNF_Regex.getTrailingUnderscore().sub("", name)
         return name
 
@@ -159,9 +162,11 @@ class Token():
     def breakDownExp( name, expression ):
         ''' breaks down expressions into individual tokens '''
 
-        for tok in Token.getValidTokens():
-            expression = expression.replace( tok, "")
-        expression = re.sub("((<(\s)*>)|[(\s)*]])", "", expression)
+        # If the token has been encountered before, don't bother creating it
+        #for tok in Token.getValidTokens():
+        #    expression = expression.replace( tok, "")
+        expressions = expression.split( "|" )
+        #expressions = [re.sub("((<(\s)*>)|[(\s)*]])", "", x) for x in expressions ]
 
         # Literals
         tokens = BNF_Regex.getTokenFromExpRegex().findall( expression )
@@ -215,7 +220,7 @@ class Parser():
     def cleanExpressionList(self, expList ):
         '''removes useless statements '''
         expList = [ re.sub(r'(\t|\n|^(\s)*$|``)', '', x) for x in expList if x is not None ]
-        expList = [ re.sub(r'<\s*>', '_', x) for x in expList if x != '' ]
+        expList = [ re.sub(r'<\s*>', '', x) for x in expList if x != '' ]
         return expList
 
     def createTokens(self, expressions ):
@@ -223,7 +228,7 @@ class Parser():
             exp = BNF_Regex.getSplitExprRegex().split( exp )
             tokenName = exp.pop(0)
             exp = self.cleanExpressionList( exp )
-            tokenName = tokenName.replace(" ", "_")
+            tokenName = tokenName.replace(" ", "")
             assignment = ''.join(exp)
             members = BNF_Regex.getTokenCleanRegex().sub("", assignment)
             Expression(**{"name": tokenName, "members": members})

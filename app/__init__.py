@@ -1,0 +1,1 @@
+'''Initializes directory as py dir'''

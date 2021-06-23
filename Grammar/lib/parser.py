@@ -61,25 +61,65 @@ class Expression():
     def __init__(self, **kwargs):
         self.params = kwargs
         self.name = self.params.get( "name" )
-        self.members = self.params.get( "members" )
+        self.values = self.params.get( "values" )   # To keep params same as in Tokens
         Expression.instances[ self.name ] = self
         self.initMembers()
 
     def getMembers(self):
         ''' returns Members '''
 
-        return self.members
+        return self.values
 
     def initMembers(self):
-        ''' initializes members '''
-        members = self.members.split("|")
-        Token.breakDownExp( self.name, self.members )
+        print(self.params)
         pass
+
+    #def initMembers(self):
+    #    ''' initializes members '''
+    #    members = self.members.split("|")
+    #    Token.breakDownExp( self.name, self.members )
+    #    pass
 
 class Literal():
 
     def __init__(self, **kwargs):
         self.params = kwargs
+
+class RHSExpParser():
+
+    def __init__(self, **kwargs):
+        ''' Creates relevant Lex element '''
+        self.params = kwargs
+        self.name = self.params.get("name")
+        self.fmtName = re.sub("(^(\s)*|(\s)*$)", "", self.name)
+        isToken = self.tokenCheck()
+        isExpression = self.expressionCheck()
+        self.isValidLexObj([ isToken, isExpression])
+        self.createLexObj(isToken, isExpression)
+
+    def createLexObj(self, isToken, isExpression):
+        if isToken:
+            Token( **self.params )
+        elif isExpression:
+            Expression( **self.params )
+
+    def isValidLexObj(self, testRes):
+        if sum(testRes) == 1:
+            return True
+        return False
+
+    def tokenCheck(self):
+          # remove leading and trailing spaces
+        if self.fmtName.startswith("<") or self.fmtName in Token._instances:
+            return True
+        return False
+
+    def expressionCheck(self):
+        ''' checks if a given expression is an expression '''
+        # Currently similar to token check
+        if self.fmtName.startswith("<") or self.fmtName in Token._instances:
+            return False
+        return True
 
 class Token():
 
@@ -103,7 +143,7 @@ class Token():
         self.isReqArg = self.params.get( "isReq", False )
         Token._instances[ self.name ] = self
 
-    def __str__(self, **kwargs ):
+    def __str__(self, *args, **kwargs):
 
         return "%s %s"%( self.name, str(self.values ) )
 
@@ -116,6 +156,7 @@ class Token():
     def formatTokenName( name ):
         ''' Formats token name the way it is stored in instances'''
         # Does not remove angular brackets
+
         name = re.sub(r"(\s)", "", name )
         name = re.sub('<|>', '', name)
         name = re.sub('\s', '', name)
@@ -139,9 +180,9 @@ class Token():
     def getTokenByName( name ):
         ''' return Token by name '''
         fmtName = Token.getInstanceKeyByName( name )
-        if Token.isToken( name ):
-            return Token._instances[ fmtName ]
-        raise Exception( "No Token by name '%s'"%name )
+        #if Token.isToken( name ):
+        return Token._instances[ fmtName ]
+        #raise Exception( "No Token by name '%s'"%name )
 
     def setValues( self ):
         values = self.params.get( "values", None )
@@ -171,10 +212,9 @@ class Token():
         # Literals
         tokens = BNF_Regex.getTokenFromExpRegex().findall( expression )
 
-        _ = [ Token(**{'name': x}) for x in tokens ]
+        _ = [ RHSExpParser(**{'name': x}) for x in tokens ]
         # First create tokens enclosed in <>
         Token(**{"name": name, "values" : expression})
-
 
 class Parser():
 
@@ -214,8 +254,14 @@ class Parser():
     def extractExpressions(self, grammar ):
         ''' Extract Expressions from grammar '''
         validExpressions = BNF_Regex.getExprRegex().findall(self.prepGrammarForParsing(grammar))
-        validExpressions = ["".join(x) for x in validExpressions]
-        return validExpressions
+
+        finalValidExp = []
+        for expr in validExpressions:
+            tokenName = "<" + expr[0] + ">" #replacing the angular brackets since it is easier to identify tokens with it
+            fullExp = tokenName + "".join( expr[1:] )
+            finalValidExp.append(fullExp)
+        #validExpressions = ["".join(x) for x in validExpressions]
+        return finalValidExp
 
     def cleanExpressionList(self, expList ):
         '''removes useless statements '''
@@ -231,7 +277,7 @@ class Parser():
             tokenName = tokenName.replace(" ", "")
             assignment = ''.join(exp)
             members = BNF_Regex.getTokenCleanRegex().sub("", assignment)
-            Expression(**{"name": tokenName, "members": members})
+            RHSExpParser(**{"name": tokenName, "values": members})
 
     def parse(self):
         ''' Read Grammar and Create Tokens '''

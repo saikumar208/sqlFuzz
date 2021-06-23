@@ -27,20 +27,25 @@ class TestParser(TestCase):
         parserObj = Parser()
         parserObj.parse()
         exceptions = []
+        isDebugMode = False
         for x in Token._instances:
             print(x)
             token = Token.getTokenByName( x )
-            exceptions = ['bitstringliteral', 'hexstringliteral', 'initialalphabeticcharacter',
-                          'ideographiccharacter', 'whitespace', 'slash', 'unqualifiedschemaname',
-                          'numericvalueexpressiondividend', 'numericvalueexpressiondivisor', 'tableborder=1',
-                          'th', '/th', 'pre', 'sup', '/sup', '/pre', 'tr', 'td', '/td', '/tr', '/table',
-                          'character--@@setspecification', 'handlerdeclaration']
+            # Need to handle some of these exceptions
             if token.name in exceptions:
                 continue
-            print(token)
+            try:
+                print(token)
 
-            for val in token.values:
-                print( val )
-                if token.isToken( val ):
-                    Token.getTokenByName( val )
-                    assert( Token.getInstanceKeyByName( val ) in Token._instances )
+                for val in token.values:
+                    print( val )
+                    if token.isToken( val ):
+                        Token.getTokenByName( val )
+                        assert( Token.getInstanceKeyByName( val ) in Token._instances )
+
+            except Exception as e:
+                if isDebugMode:
+                    exceptions.append( token.name )
+                else:
+                    raise e
+        print(exceptions)

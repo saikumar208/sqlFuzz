@@ -1,6 +1,6 @@
 ''' Generates stub of SQL queries '''
 
-from Grammar.lib.parser import Parser, Token
+from lib.grammar.parser import Parser, Token
 
 def initializeGrammarElements():
     ''' Intializes Tokens and other elements '''

@@ -1,3 +1,3 @@
-''' Config for Grammar FIle '''
+''' Config for lib FIle '''
 
-GRAMMAR_FILE="Grammar\sql-2003-2.bnf"
+GRAMMAR_FILE="lib\sql-2003-2.bnf"

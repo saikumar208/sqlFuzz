@@ -1,7 +1,19 @@
 from unittest import TestCase
-from Grammar.lib.parser import Parser, Token
+from lib.grammar.parser import Parser, Token, Expression
 
 class TestParser(TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super(TestParser, cls).setUpClass()
+        cls.parserObj = Parser()
+        cls.parserObj.parse()
+
+    def test_expressions(self):
+        for exp in Expression._instances:
+            print(exp)
+        assert( True )
+
     def test_open_file(self):
         pass
 
@@ -23,29 +35,32 @@ class TestParser(TestCase):
     def test_create_tokens(self):
         pass
 
-    def test_parse(self):
-        parserObj = Parser()
-        parserObj.parse()
+    def test_runTestParse(self):
+
         exceptions = []
-        isDebugMode = False
+        isDebugMode = True
         for x in Token._instances:
-            print(x)
+            #print(x)
             token = Token.getTokenByName( x )
             # Need to handle some of these exceptions
             if token.name in exceptions:
                 continue
             try:
-                print(token)
+                #print(token)
 
                 for val in token.values:
-                    print( val )
+                    #print( val )
                     if token.isToken( val ):
                         Token.getTokenByName( val )
                         assert( Token.getInstanceKeyByName( val ) in Token._instances )
 
             except Exception as e:
                 if isDebugMode:
-                    exceptions.append( token.name )
+                    exceptions.append( (token.name,e) )
                 else:
                     raise e
-        print(exceptions)
+        print("#"*100)
+
+        for x in exceptions:
+            print(x)
+        #print(exceptions)

@@ -80,7 +80,8 @@ class Parser():
         grammar = self.cleanGrammarFile( grammar )
         validExpressions = self.extractExpressions( grammar )
 
-        self.createTokens( validExpressions )
+        self.createTokens( validExpressions ) # Init Tokens, expressions and atomic literals
+        Expression.initAllMembers()           # Init expression members
 
 
 if __name__ == '__main__':

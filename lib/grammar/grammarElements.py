@@ -1,15 +1,16 @@
 
 import re
 from lib.grammar.regexes import BNF_Regex
-
+from config.grammarConfig import UNDEFINED_WORDS
 # RHSExpParser is a parser element but is declared here to avoid circular references
 
-class LexElementMaster():
+RUN_INCOMPLETE_SETUP = True
 
-    _map = dict()
-
-    def __init__(self, **kwargs):
+def isIncompleteRun():
+    if RUN_INCOMPLETE_SETUP:
         pass
+    else:
+        raise Exception
 
 class LexElementbase():
 
@@ -36,6 +37,26 @@ class LexElementbase():
         fmtName = clazz.getInstanceKeyByName(name)
         # if Token.isToken( name ):
         return clazz._instances[fmtName]
+
+class LexElementMaster( LexElementbase ):
+
+    exceptions = []
+
+    @staticmethod
+    def getLexElemByNameOverride( name ):
+        try:
+            return LexElementbase.getLexElemByName( Token, name )
+        except:
+            try:
+                return LexElementbase.getLexElemByName( AtomicLiteral, name )
+            except Exception as e:
+                if LexElementbase.getInstanceKeyByName(name) in LexElementbase.UNDEFINED_WORDS:
+                    return name
+                else:
+                    print("Could not assign obj", name)
+                    #raise Exception
+                    LexElementMaster.exceptions.append( name )
+
 
 class RHSExpParser():
 
@@ -91,30 +112,95 @@ class RHSExpParser():
             return True
         return False
 
+class ActualExpression():
+
+    def __init__(self, **kwargs):
+        self.params = kwargs
+        self.isOptional = self.params.get("isOptional", False)
+        self.members = []
+
+    def addMember(self, newMember):
+
+        self.members.append( newMember )
+
 class Expression( LexElementbase ):
 
     _instances = dict()
 
     def __init__(self, **kwargs):
         self.params = kwargs
-        self.name = self.params.get( "name" )
+        self.name = self.formatLexName( self.params.get( "name" ) )
         self.members = self.params.get( "values" )   # To keep params same as in Tokens
         Expression._instances[ self.name ] = self
-        self.initMembers()
+
+    @staticmethod
+    def initAllMembers():
+        ''' initialize all members '''
+        for inst in Expression._instances:
+            Expression._instances[inst].initMembers()
 
     def __str__(self, *args, **kwargs):
 
         return self.members
 
-    def getMembers(self):
+    def getValues(self):
         ''' returns Members '''
 
-        return self.values
+        for val in self.values:
+            yield val
 
     def initMembers(self):
-        print(self.params)
-        pass
+        print( self.name, self.params )
 
+        strExp = self.params['name']
+        levels = [ ActualExpression() ]
+        isReadingToken = False
+        i = -1
+        optionalParam = []
+        stopChars = ['[', ']', '<', '>', ' ']
+        expLen = len(strExp)
+        while i < expLen-1:
+            i += 1
+            char = strExp[i]
+
+            if char == " ":
+                continue
+            elif char == "<":
+                tok = ""
+                tok += char
+                i +=1
+                while strExp[i] != ">":
+                    tok += strExp[i]
+                    i += 1
+                tok += strExp[i] # get closing ang bracket
+                try:
+                    levels[-1].addMember( LexElementMaster.getLexElemByNameOverride(tok) )
+                except:
+                    isIncompleteRun()
+
+            elif char == "[":
+                levels.append( ActualExpression(**{"isOptional" :True} ) ) # create new level
+                try:
+                    levels[-2].addMember( levels[-1] )     # Make new level a child of previous level
+                except:
+                    isIncompleteRun()
+            elif char == "]":
+                #optionalParam.pop()
+                levels.pop()   # Come back up one level
+            else:
+                unknWord = ""
+                while i < expLen and strExp[i] not in stopChars:
+                    unknWord += strExp[i]
+                    i += 1
+                try:
+                    levels[-1].addMember( unknWord )
+                except:
+                    isIncompleteRun()
+        try:
+            self.members = levels[-1]
+        except:
+            isIncompleteRun()
+        print(self.members)
 
 class AtomicLiteral( LexElementbase ):
 
@@ -197,7 +283,7 @@ class Token( LexElementbase ):
     def getValues(self):
         ''' yield values '''
         for token in self.values:
-            yield  token
+            yield  LexElementMaster.getLexElemByNameOverride( token )
 
     @staticmethod
     def breakDownExp( expression ):
@@ -210,3 +296,5 @@ class Token( LexElementbase ):
 
         _ = [ RHSExpParser(**{'name': x}) for x in expressions ]
         # First create tokens enclosed in <>
+
+LexElementbase.UNDEFINED_WORDS = [LexElementbase.getInstanceKeyByName(x) for x in UNDEFINED_WORDS]

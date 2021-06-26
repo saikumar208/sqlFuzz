@@ -19,7 +19,9 @@ def getExp( startingToken ):
 
 
 #def walkGrammar():
+
 initializeGrammarElements()
 startingPoint = "preparableSQLdatastatement"
 startingToken = Token.getTokenByName(startingPoint)
+print("#"*20)
 getExp( startingToken )

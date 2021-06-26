@@ -4,6 +4,39 @@ from lib.grammar.regexes import BNF_Regex
 
 # RHSExpParser is a parser element but is declared here to avoid circular references
 
+class LexElementMaster():
+
+    _map = dict()
+
+    def __init__(self, **kwargs):
+        pass
+
+class LexElementbase():
+
+    @staticmethod
+    def formatLexName(name):
+        ''' Formats token name the way it is stored in instances'''
+        # Does not remove angular brackets
+
+        name = re.sub(r"(\s)", "", name)
+        name = re.sub('<|>', '', name)
+        name = re.sub('\s', '', name)
+        name = BNF_Regex.getTrailingUnderscore().sub("", name)
+        return name
+
+    @staticmethod
+    def getInstanceKeyByName(name):
+        name = Token.formatLexName(name)
+        name = re.sub(r"(<|>)", "", name)
+        return name
+
+    @staticmethod
+    def getLexElemByName(clazz, name):
+        ''' return Token by name '''
+        fmtName = clazz.getInstanceKeyByName(name)
+        # if Token.isToken( name ):
+        return clazz._instances[fmtName]
+
 class RHSExpParser():
 
     def __init__(self, **kwargs):
@@ -34,7 +67,7 @@ class RHSExpParser():
 
     def tokenCheck(self):
           # remove leading and trailing spaces
-        if self.fmtName.startswith("<") or self.fmtName in Token._instances:
+        if Token.isToken( self.fmtName ):
             if "values" in self.params:
                 if not len(self.params.get( "values" )) > 2:
                     return False
@@ -46,8 +79,9 @@ class RHSExpParser():
 
     def isAtom(self):
         ''' Checks if lex element is an atom'''
-        if len(self.params.get( "values", "'" )) <= 2:
-            return True
+        if not Token.isToken( self.name ) and len(self.params.get( "values", "" )) <= 2:
+            if AtomicLiteral.isAtomicLiteral( self.name ):
+                return True
         return False
 
     def expressionCheck(self):
@@ -57,7 +91,7 @@ class RHSExpParser():
             return True
         return False
 
-class Expression():
+class Expression( LexElementbase ):
 
     _instances = dict()
 
@@ -82,24 +116,33 @@ class Expression():
         pass
 
 
-class AtomicLiteral():
+class AtomicLiteral( LexElementbase ):
 
     _instances = dict()
 
     def __init__(self, **kwargs):
         self.params = kwargs
-        self.name = self.params.get("name")
+        self.name = self.formatLexName( self.params.get("name") )
         self.value = self.params.get( "values" )
         AtomicLiteral._instances[ self.name ] = self
 
-class Token():
+    @staticmethod
+    def isAtomicLiteral( name ):
+        bool1 = not( name.startswith("<") and name.endswith(">") )  # token must start and end with ang brackets
+        bool2 = (name.count('<') == 0 and name.count('>') == 0)  # there must be only one pair
+        bool3 = name.count("[") == 0
+        if all([bool1, bool2, bool3]):  # or name in Token._instances:
+            return True
+        return False
+
+class Token( LexElementbase ):
 
     _instances = dict()
 
     def __init__(self, **kwargs):
 
         name = kwargs.get("name")
-        self.name = self.formatTokenName( name )
+        self.name = self.formatLexName(name)
         if self.name in Token._instances:
             Token._instances[ self.name ].params.update(kwargs)
             self.params = Token._instances[ self.name ].params
@@ -125,23 +168,6 @@ class Token():
         return Token._instances.keys()
 
     @staticmethod
-    def formatTokenName( name ):
-        ''' Formats token name the way it is stored in instances'''
-        # Does not remove angular brackets
-
-        name = re.sub(r"(\s)", "", name )
-        name = re.sub('<|>', '', name)
-        name = re.sub('\s', '', name)
-        name = BNF_Regex.getTrailingUnderscore().sub("", name)
-        return name
-
-    @staticmethod
-    def getInstanceKeyByName( name ):
-        name = Token.formatTokenName(name)
-        name = re.sub(r"(<|>)", "", name)
-        return name
-
-    @staticmethod
     def isToken( name ):
         ''' Checks if a given name is a token '''
         bool1 = name.startswith("<") and name.endswith(">") #token must start and end with ang brackets
@@ -154,17 +180,14 @@ class Token():
     @staticmethod
     def getTokenByName( name ):
         ''' return Token by name '''
-        fmtName = Token.getInstanceKeyByName( name )
-        #if Token.isToken( name ):
-        return Token._instances[ fmtName ]
-        #raise Exception( "No Token by name '%s'"%name )
+        return Token.getLexElemByName( Token, name )
 
     def setValues( self ):
         values = self.params.get( "values", None )
 
         if values is not None:
             Token.breakDownExp(values)
-            self.values = [ Token.formatTokenName( x ) for x in values.split("|") ]
+            self.values = [Token.formatLexName(x) for x in values.split("|")]
             pass
 
     def updateValuesType( self ):
@@ -184,8 +207,6 @@ class Token():
             return
 
         expressions = expression.split( "|" )
-        #tokens = BNF_Regex.getTokenFromExpRegex().findall( expression )
 
         _ = [ RHSExpParser(**{'name': x}) for x in expressions ]
         # First create tokens enclosed in <>
-        #Token(**{"name": name, "values" : expression})

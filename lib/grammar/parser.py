@@ -10,9 +10,6 @@ from lib.grammar.grammarElements import Token, Expression, AtomicLiteral, RHSExp
 import re
 from logging import getLogger
 
-
-
-
 class Parser():
 
     def __init__(self):

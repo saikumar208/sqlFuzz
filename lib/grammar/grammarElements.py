@@ -1,7 +1,7 @@
 
 import re
 from lib.grammar.regexes import BNF_Regex
-from config.grammarConfig import UNDEFINED_WORDS
+from config.grammarConfig import UNDEFINED_WORDS, STOP_WORDS
 # RHSExpParser is a parser element but is declared here to avoid circular references
 
 RUN_INCOMPLETE_SETUP = True
@@ -49,13 +49,16 @@ class LexElementMaster( LexElementbase ):
         except:
             try:
                 return LexElementbase.getLexElemByName( AtomicLiteral, name )
-            except Exception as e:
-                if LexElementbase.getInstanceKeyByName(name) in LexElementbase.UNDEFINED_WORDS:
-                    return name
-                else:
-                    print("Could not assign obj", name)
-                    #raise Exception
-                    LexElementMaster.exceptions.append( name )
+            except:
+                try:
+                    return LexElementbase.getLexElemByName( Expression, name )
+                except Exception as e:
+                    if LexElementbase.getInstanceKeyByName(name) in LexElementbase.UNDEFINED_WORDS:
+                        return name
+                    else:
+                        print("Could not assign obj", name)
+                        #raise Exception
+                        LexElementMaster.exceptions.append( name )
 
 
 class RHSExpParser():
@@ -112,6 +115,27 @@ class RHSExpParser():
             return True
         return False
 
+def unpack( members ):
+    structure = []
+    for x in members:
+
+        if isinstance(x, str):
+            if 'identifierstart' in x or x in ['tablename', 'localorschemaqualifiedname'] or any(y == x for y in Token._instances['reservedword'].values) :
+                structure.append(x)
+                continue
+            obj = LexElementMaster.getLexElemByNameOverride(x)
+            if obj is None:
+                structure.append(x)
+                continue
+            else:
+                x = obj
+        vals = x.getValues()
+        if vals == members:
+            return structure
+        structure.append( unpack( vals ) )
+    #print(structure)
+    return structure
+
 class ActualExpression():
 
     def __init__(self, **kwargs):
@@ -122,6 +146,10 @@ class ActualExpression():
     def addMember(self, newMember):
 
         self.members.append( newMember )
+
+    def getValues(self):
+
+        return self.members
 
 class Expression( LexElementbase ):
 
@@ -145,12 +173,13 @@ class Expression( LexElementbase ):
 
     def getValues(self):
         ''' returns Members '''
-
-        for val in self.values:
-            yield val
+        try:
+            return self.members.members
+        except:
+            return []
 
     def initMembers(self):
-        print( self.name, self.params )
+        #print( self.name, self.params )
 
         strExp = self.params['name']
         levels = [ ActualExpression() ]
@@ -200,7 +229,7 @@ class Expression( LexElementbase ):
             self.members = levels[-1]
         except:
             isIncompleteRun()
-        print(self.members)
+        #print(self.members)
 
 class AtomicLiteral( LexElementbase ):
 
@@ -270,7 +299,7 @@ class Token( LexElementbase ):
 
     def setValues( self ):
         values = self.params.get( "values", None )
-
+        self.values = []
         if values is not None:
             Token.breakDownExp(values)
             self.values = [Token.formatLexName(x) for x in values.split("|")]
@@ -280,10 +309,13 @@ class Token( LexElementbase ):
         ''' Once all tokens have been created, update the types of the tokens '''
         pass
 
+    #def getValues(self):
+    #    ''' yield values '''
+    #    for token in self.values:
+    #        yield  LexElementMaster.getLexElemByNameOverride( token )
+
     def getValues(self):
-        ''' yield values '''
-        for token in self.values:
-            yield  LexElementMaster.getLexElemByNameOverride( token )
+        return self.values
 
     @staticmethod
     def breakDownExp( expression ):
@@ -291,8 +323,10 @@ class Token( LexElementbase ):
 
         if expression is None:
             return
-
-        expressions = expression.split( "|" )
+        if "{" in expression and "}" in expression and "|" in expression:
+            expressions = [expression]
+        else:
+            expressions = expression.split( "|" )
 
         _ = [ RHSExpParser(**{'name': x}) for x in expressions ]
         # First create tokens enclosed in <>
